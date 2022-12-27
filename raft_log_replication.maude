@@ -1,0 +1,255 @@
+fmod SOUP {D :: TRIV} is
+  pr NAT .
+  sort Soup{D} .
+  subsort D$Elt < Soup{D} .
+  op empty : -> Soup{D} [ctor] .
+  op _ _ : Soup{D} Soup{D} -> Soup{D} [ctor assoc comm id: empty] .
+  op _\in_ : D$Elt Soup{D} -> Bool .
+  op length : Soup{D} -> Nat .
+  op _ - _ : Soup{D} D$Elt -> Soup{D} .
+  var E : D$Elt .
+  var S : Soup{D} .
+  eq E E = E .
+  eq E \in E S = true .
+  eq E \in S = false [owise] .
+  eq length(empty) = 0 .
+  eq length((E S)) = length(S) + 1 .
+  eq (E S) - E = S .
+  eq S - E = S [owise] .
+endfm
+
+fmod MULTISET {D :: TRIV} is
+  sort Multiset{D} .
+  subsort D$Elt < Multiset{D} .
+  op empty : -> Multiset{D} [ctor] .
+  op _ _ : Multiset{D} Multiset{D} -> Multiset{D} [ctor assoc comm id: empty] .
+endfm
+
+fmod ROLE is
+  sort Role .
+  sorts Leader Candidate Follower .
+  subsorts Leader Candidate Follower < Role .
+  op leader : -> Leader [ctor] .
+  op candidate : -> Candidate [ctor] .
+  op follower : -> Follower [ctor] .
+endfm
+
+fmod SERVER-ID is
+  sort ServerID .
+  ops s0 s1 s2 : -> ServerID [ctor] .
+endfm
+
+view ServerID from TRIV to SERVER-ID is
+  sort Elt to ServerID .
+endv
+
+fmod CLIENT-REQUEST is
+  sort ClientRequest .
+  ops cr0 cr1 : -> ClientRequest [ctor] .
+endfm
+
+view ClientRequest from TRIV to CLIENT-REQUEST is
+  sort Elt to ClientRequest .
+endv
+
+fmod LOG is
+  pr NAT .
+  pr CLIENT-REQUEST .
+  sort Log .
+  op null : -> Log [ctor] .
+  op log : Nat ClientRequest -> Log [ctor] .
+  op term : Log -> Nat .
+  op value : Log -> ClientRequest .
+  var T : Nat .
+  var V : ClientRequest .
+  eq term(null) = 0 .
+  eq term(log(T, V)) = T .
+  eq value(log(T, V)) = V .
+endfm
+
+fmod LOGS is
+  pr LOG .
+  sorts Logs LogWithIndex .
+  subsort LogWithIndex < Logs .
+  op empty : -> Logs [ctor] .
+  op logWithIndex : Nat Log -> LogWithIndex [ctor] .
+  op _,_ : Logs Logs -> Logs [ctor assoc comm id: empty] .
+  op _[_] : Logs Nat -> Log .
+  op _[_] := _ : Logs Nat Log -> Logs .
+  op _[:_] : Logs Nat -> Logs .
+  op length : Logs -> Nat .
+  var Ls : Logs .
+  vars L0 L1 : Log .
+  vars I J : Nat .
+  eq (logWithIndex(I, L0), Ls)[I] = L0 .
+  eq Ls[I] = null [owise] .
+  eq (Ls[I] := L1) = logWithIndex(I, L1), Ls .
+  eq length(empty) = 0 .
+  eq length((logWithIndex(I, L0), Ls)) = length(Ls) + 1 .
+  ceq (logWithIndex(I, L0), Ls)[: J] = Ls[: J] if I >= J .
+  eq Ls[: J] = Ls [owise] .
+endfm
+
+fmod APPEND-ENTRIES-REQUEST is
+  pr NAT .
+  pr INT .
+  pr SERVER-ID .
+  pr LOGS .
+  sort AppendEntriesRequest .
+  op appendEntriesRequest : Nat ServerID Nat Nat Log Nat -> AppendEntriesRequest [ctor] .
+  op term : AppendEntriesRequest -> Nat .
+  op leaderID : AppendEntriesRequest -> ServerID .
+  op prevLogIndex : AppendEntriesRequest -> Nat .
+  op prevLogTerm : AppendEntriesRequest -> Nat .
+  op entries : AppendEntriesRequest -> Log .
+  op leaderCommit : AppendEntriesRequest -> Nat .
+  vars T LID PLI PLT LC : Nat .
+  var SID : ServerID .
+  var L : Log .
+  eq term(appendEntriesRequest(T, SID, PLI, PLT, L, LC)) = T .
+  eq leaderID(appendEntriesRequest(T, SID, PLI, PLT, L, LC)) = SID .
+  eq prevLogIndex(appendEntriesRequest(T, SID, PLI, PLT, L, LC)) = PLI .
+  eq prevLogTerm(appendEntriesRequest(T, SID, PLI, PLT, L, LC)) = PLT .
+  eq entries(appendEntriesRequest(T, SID, PLI, PLT, L, LC)) = L .
+  eq leaderCommit(appendEntriesRequest(T, SID, PLI, PLT, L, LC)) = LC .
+endfm
+
+fmod APPEND-ENTRIES-RESPONSE is
+  pr NAT .
+  pr APPEND-ENTRIES-REQUEST .
+  sort AppendEntriesResponse .
+  op appendEntriesResponse : Nat Bool AppendEntriesRequest -> AppendEntriesResponse [ctor] .
+  op term : AppendEntriesResponse -> Nat .
+  op success : AppendEntriesResponse -> Bool .
+  op appendEntriesRequest : AppendEntriesResponse -> AppendEntriesRequest .
+  var T : Nat .
+  var B : Bool .
+  var AER : AppendEntriesRequest .
+  eq term(appendEntriesResponse(T, B, AER)) = T .
+  eq success(appendEntriesResponse(T, B, AER)) = B .
+  eq appendEntriesRequest(appendEntriesResponse(T, B, AER)) = AER .
+endfm
+
+fmod MESSAGE is
+  pr APPEND-ENTRIES-REQUEST .
+  pr APPEND-ENTRIES-RESPONSE .
+  sort Msg .
+  op msg : ServerID ServerID AppendEntriesRequest -> Msg [ctor] .
+  op msg : ServerID ServerID AppendEntriesResponse -> Msg [ctor] .
+endfm
+
+view Msg from TRIV to MESSAGE is
+  sort Elt to Msg .
+endv
+
+fmod NETWORK is
+  pr SOUP{ServerID} .
+  pr SOUP{Msg} .
+  op mkAppendEntriesRequests : ServerID AppendEntriesRequest Soup{ServerID} -> Soup{Msg} .
+  vars S0 S1 : ServerID .
+  var Ss : Soup{ServerID} .
+  var AEReq : AppendEntriesRequest .
+  eq mkAppendEntriesRequests(S0, AEReq, empty) = empty .
+  eq mkAppendEntriesRequests(S0, AEReq, S1 Ss) = msg(S0, S1, AEReq) mkAppendEntriesRequests(S0, AEReq, Ss) .
+endfm
+
+fmod OCOM is
+  pr SOUP{ServerID} .
+  pr SOUP{ClientRequest} .
+  pr NETWORK .
+  pr ROLE .
+  pr LOGS .
+  sort OCom .
+  op term[_]:_ : ServerID Nat -> OCom [ctor] .
+  op role[_]:_ : ServerID Role -> OCom [ctor] .
+  op log[_]:_ : ServerID Logs -> OCom [ctor] .
+  op commitIndex[_]:_ : ServerID Nat -> OCom [ctor] .
+  op nextIndex[_][_]:_ : ServerID ServerID Nat -> OCom [ctor] .
+  op matchIndex[_][_]:_ : ServerID ServerID Nat -> OCom [ctor] .
+  op servers:_ : Soup{ServerID} -> OCom [ctor] .
+  op clientRequests:_ : Soup{ClientRequest} -> OCom [ctor] .
+  op network:_ : Soup{Msg} -> OCom [ctor] .
+endfm
+
+view OCom from TRIV to OCOM is
+  sort Elt to OCom .
+endv
+
+fmod CONFIG is
+  pr NAT .
+  pr SOUP{OCom} .
+  sort Config .
+  op {_} : Soup{OCom} -> Config [ctor] .
+  op n : -> Nat .
+  op majority : -> Nat .
+  op init : -> Config .
+  eq n = 3 .
+  eq majority = n quo 2 + 1 .
+  eq init = {(term[s0]: 1) (term[s1]: 1) (term[s2]: 1)
+             (role[s0]: leader) (role[s1]: follower) (role[s2]: follower)
+             (log[s0]: empty) (log[s1]: empty) (log[s2]: empty)
+             (commitIndex[s0]: 0) (commitIndex[s1]: 0) (commitIndex[s2]: 0)
+             (nextIndex[s0][s1]: 1) (nextIndex[s0][s2]: 1)
+             (matchIndex[s0][s1]: 0) (matchIndex[s0][s2]: 0)
+             (servers: (s0 s1 s2))
+             (clientRequests: (cr0 cr1))
+             (network: empty)} .
+endfm
+
+mod RAFT is
+  pr CONFIG .
+  pr MULTISET{Nat} .
+
+  op replicatedCount : Nat Multiset{Nat} -> Nat .
+
+  var R R0 : Role .
+  vars T U CI MI MI1 MI2 LCI PI PLT NI NI1 NI2 PLI N I : Nat .
+  vars S0 S1 S2 : ServerID .
+  var Ss : Soup{ServerID} .
+  var B : Bool .
+  var Ls L : Logs .
+  var AEReq : AppendEntriesRequest .
+  var NW : Soup{Msg} .
+  var Ns : Multiset{Nat} .
+  var CR : ClientRequest .
+  var CRs : Soup{ClientRequest} .
+  var OCs : Soup{OCom} .
+
+  eq replicatedCount(I, empty) = 1 .
+  ceq replicatedCount(I, (N Ns)) = 1 + replicatedCount(I, Ns) if N >= I .
+  ceq replicatedCount(I, (N Ns)) = replicatedCount(I, Ns) if N < I .
+
+  rl [appendEntries] : {(term[S0]: T) (role[S0]: leader) (commitIndex[S0]: CI) (log[S0]: Ls) (servers: Ss) (clientRequests: (CR CRs)) (network: NW) OCs} =>
+                       {(term[S0]: T) (role[S0]: leader) (commitIndex[S0]: CI)
+                        (log[S0]: Ls[length(Ls) + 1] := log(T, CR)) (servers: Ss) (clientRequests: CRs)
+                        (network:(NW mkAppendEntriesRequests(S0, appendEntriesRequest(T, S0, length(Ls), term(Ls[length(Ls)]), log(T, CR), CI), Ss - S0))) OCs} .
+  crl [handleAppendEntriesRequest] : {(term[S0]: T) (role[S0]: R) (commitIndex[S0]: CI) (log[S0]: Ls) (network: (msg(S1, S0, appendEntriesRequest(U, S1, PLI, PLT, log(U, CR), LCI)) NW)) OCs} =>
+                                     {(term[S0]: if U > T then U else T fi) (role[S0]: if U >= T then follower else R fi)
+                                      (commitIndex[S0]: if LCI > CI then min(LCI, length(L)) else CI fi) (log[S0]: L)
+                                      (network: (msg(S0, S1, appendEntriesResponse((if U > T then U else T fi), B, appendEntriesRequest(U, S1, PLI, PLT, log(U, CR), LCI))) msg(S1, S0, appendEntriesRequest(U, S1, PLI, PLT, log(U, CR), LCI)) NW)) OCs}
+                                      if length(Ls) < 3
+                                      /\ B := U >= T and ((Ls[PLI] =/= null and term(Ls[PLI]) == PLT) or (PLI == 0))
+                                      /\ L := if B and Ls[PLI + 1] == null then Ls[PLI + 1] := log(U, CR) else (if (CI < PLI) and (length(Ls) =/= PLI or term(Ls[PLI]) =/= PLT) then Ls[: PLI] else Ls fi) fi .
+  crl [handleAppendEntriesResponse] : {(term[S0]: T) (role[S0]: R) (commitIndex[S0]: CI) (nextIndex[S0][S1]: NI1) (matchIndex[S0][S1]: MI1) (matchIndex[S0][S2]: MI2) (log[S0]: Ls) (network: (msg(S1, S0, appendEntriesResponse(U, B, AEReq)) NW)) OCs} =>
+                                     {(term[S0]: if U > T then U else T fi) (role[S0]: R0)
+                                      (commitIndex[S0]: if replicatedCount(N, (MI MI2)) >= majority and T == term(Ls[N]) and R0 == leader and N > CI then N else CI fi)
+                                      (nextIndex[S0][S1]: NI) (matchIndex[S0][S1]: MI) (matchIndex[S0][S2]: MI2) (log[S0]: Ls)
+                                      (network: if (not B and U <= T and R0 == leader) then (msg(S0, S1, appendEntriesRequest(T, S0, PI, term(Ls[PI]), Ls[NI], leaderCommit(AEReq))) msg(S1, S0, appendEntriesResponse(U, B, AEReq)) NW)
+                                                else (msg(S1, S0, appendEntriesResponse(U, B, AEReq)) NW) fi) OCs}
+                                      if MI := if B then max(prevLogIndex(AEReq) + 1, MI1) else MI1 fi
+                                      /\ NI := if B then MI + 1 else max(sd(NI1, 1), 1) fi
+                                      /\ PI := sd(NI, 1)
+                                      /\ N := prevLogIndex(AEReq) + 1
+                                      /\ R0 := if U > T then follower else R fi .
+endm
+
+--- Log Matching Property
+--- search [1] in RAFT : init =>* { (log[S0:ServerID]: L0:Logs) (log[S1:ServerID]: L1:Logs) (matchIndex[S0][S1]: I:Nat) OCs }
+---   such that L0:Logs[I:Nat] =/= null and L1:Logs[I:Nat] =/= null
+---   and (term(L0:Logs[I:Nat]) == term(L1:Logs[I:Nat]))
+---   and ((term(L0:Logs[sd(I:Nat, 1)]) =/= term(L1:Logs[sd(I:Nat, 1)]))
+---   or (value(L0:Logs[sd(I:Nat, 1)]) =/= value(L1:Logs[sd(I:Nat, 1)]))) .
+
+--- State Machine Safety Property
+--- search [1] in RAFT : init =>* { (log[S0:ServerID]: L0:Logs) (log[S1:ServerID]: L1:Logs) (commitIndex[S0]: I:Nat) (commitIndex[S1]: I:Nat)  OCs }
+---   such that ((term(L0:Logs[I:Nat]) =/= term(L1:Logs[I:Nat])) or (value(L0:Logs[I:Nat]) =/= value(L1:Logs[I:Nat]))).
